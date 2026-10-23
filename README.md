@@ -1,4 +1,4 @@
-# theme colors
+# theme colors 1.4.1
 
 An [omalauncher](https://github.com/SimonSchubert/omarchy-widgets) home-screen widget that edits the active Omarchy theme's colors on the phone.
 
