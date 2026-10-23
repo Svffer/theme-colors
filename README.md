@@ -14,6 +14,7 @@ An [omalauncher](https://github.com/SimonSchubert/omarchy-widgets) home-screen w
   - HEX, RGB and HSL input;
   - 12 slots for saved colors (tap an empty one to save, a filled one to pick, hold to clear).
 - **reset** restores the theme's original colors.
+- **⟳** re-reads the theme now. The tile also updates on its own as soon as the launcher applies a theme, after a theme switch on the phone or an edit.
 - **Languages.** English by default; Russian, Ukrainian and Belarusian from the ⚙ menu. Those three are AI translations, and the menu says so.
 
 The new color shows on the tile at once and in the whole theme about 2–3 seconds later.
