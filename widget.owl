@@ -2,7 +2,7 @@ widget "theme colors" {
   // By Svffer (https://github.com/Svffer), written together with Claude Opus 5.5, Anthropic's AI model. MIT license.
   size: 6x4
   minSize: 4x3
-  meta { description: "Sets the active Omarchy theme's colors from its palette or a color picker; English, Russian, Ukrainian and Belarusian (AI-translated)"; version: "1.4"; license: "MIT"; category: "system"; owl: 12 }
+  meta { description: "Sets the active Omarchy theme's colors from its palette or a color picker; English, Russian, Ukrainian and Belarusian (AI-translated)"; version: "1.4.1"; license: "MIT"; category: "system"; owl: 12 }
   requires { pacman: ["bash", "coreutils", "grep", "sed", "util-linux"] }
 
   // The active theme: `theme` in style.toml, else the one omarchy has applied.
@@ -22,10 +22,9 @@ grep -E '^[a-z0-9_]+ *= *"#[0-9a-fA-F]{6}' "$d/colors.toml" | sed -E 's/^([a-z0-
 grep -E '^[a-z0-9_]+ *= *"#[0-9a-fA-F]{6}' "$p" | sed -E 's/^([a-z0-9_]+) *= *"(#[0-9a-fA-F]{6}).*/p \1 \2/'
 """) every 5m
   // Re-read the theme as soon as the launcher applies one (a theme switch on the phone, or a rebuild after an edit),
-  // instead of waiting for the next poll.
-  source appliedName = file("~/.local/state/omarchy/current/theme.name")
+  // instead of waiting for the next poll. The launcher rewrites the applied colors.toml on every apply, so watching it
+  // alone catches both; it is read only when it changes, with no polling.
   source appliedColors = file("~/.local/state/omarchy/current/theme/colors.toml")
-  on appliedName { refresh() }
   on appliedColors { refresh() }
 
   state picked = null
@@ -302,10 +301,13 @@ grep -E '^[a-z0-9_]+ *= *"#[0-9a-fA-F]{6}' "$p" | sed -E 's/^([a-z0-9_]+) *= *"(
   let ch = cd == 0 ? 0 : (mx == cr / 255 ? 60 * (((cg - cb) / 255 / cd) % 6) : mx == cg / 255 ? 60 * ((cb - cr) / 255 / cd + 2) : 60 * ((cr - cg) / 255 / cd + 4)) % 360
   let hueShown = cs == 0 ? hueKeep : ch
   let satShown = cl <= 0 || cl >= 1 ? satKeep : cs
+  // The palettes below follow the current color, so they are worked out only while shown: a slider step then
+  // rebuilds one palette, not three.
+  let showPalette = mode == "custom" && pickerOpen
   // Tonal: tones of the current color, 12 lightness steps at 4 saturation levels.
-  let tonalCells = range(48).map(i => {h: round(hueShown), s: [100, 70, 45, 20][floor(i / 12)], l: [95, 88, 80, 70, 60, 50, 42, 35, 27, 20, 13, 7][i % 12]})
+  let tonalCells = !(showPalette && gridMode == "tonal") ? [] : range(48).map(i => {h: round(hueShown), s: [100, 70, 45, 20][floor(i / 12)], l: [95, 88, 80, 70, 60, 50, 42, 35, 27, 20, 13, 7][i % 12]})
   // Functional: UI state colors, plus an accent and a neutral from the current hue.
-  let funcRows = [
+  let funcRows = !(showPalette && gridMode == "func") ? [] : [
     {id: "success", h: 140, s: 55},
     {id: "warning", h: 40, s: 90},
     {id: "error", h: 355, s: 70},
@@ -316,7 +318,7 @@ grep -E '^[a-z0-9_]+ *= *"#[0-9a-fA-F]{6}' "$p" | sed -E 's/^([a-z0-9_]+) *= *"(
   // Harmonic: schemes from the current color; d shifts the hue, or the lightness for monochrome.
   let baseS = round(satShown * 100)
   let baseL = round(cl * 100)
-  let harmRows = [
+  let harmRows = !(showPalette && gridMode == "harm") ? [] : [
     {id: "compl", cells: [0, 180].map(d => {h: round(hueShown + d) % 360, s: baseS, l: baseL, base: d == 0})},
     {id: "analog", cells: [-30, 0, 30].map(d => {h: round(hueShown + d) % 360, s: baseS, l: baseL, base: d == 0})},
     {id: "triad", cells: [0, 120, 240].map(d => {h: round(hueShown + d) % 360, s: baseS, l: baseL, base: d == 0})},
@@ -361,7 +363,7 @@ grep -E '^[a-z0-9_]+ *= *"#[0-9a-fA-F]{6}' "$p" | sed -E 's/^([a-z0-9_]+) *= *"(
         // re-applies the theme as described at applyReq.
         Text {
           text: L.reset; style: small; color: muted
-          onTap: run("t=$(sed -n \"s/^theme *= *\\\"\\(.*\\)\\\"/\\1/p\" ~/.config/omalauncher/style/style.toml)\n[ -n \"$t\" ] || t=$(cat ~/.local/state/omarchy/current/theme.name)\nt=$(printf %s \"$t\" | sed \"s/-reload\\$//\")\nd=~/.config/omarchy/themes/$t\n[ -f \"$d/colors.orig.toml\" ] || exit 1\nown=0\nfor x in \"$d\"/* \"$d\"/.[!.]*; do\n[ -e \"$x\" ] || [ -L \"$x\" ] || continue\ncase \"$x\" in */colors.toml|*/colors.orig.toml|*/.theme-colors-copy) ;; *) [ -L \"$x\" ] || own=1 ;; esac\ndone\nif [ -f \"$d/.theme-colors-copy\" ] && [ $own = 0 ]; then\nfor x in \"$d\"/*; do [ -L \"$x\" ] && rm -f \"$x\"; done\nrm -f \"$d/colors.toml\" \"$d/colors.orig.toml\" \"$d/.theme-colors-copy\"\nrmdir \"$d\" || exit 1\nd=~/.local/share/omarchy/themes/$t\nelse\nmv -f \"$d/colors.orig.toml\" \"$d/colors.toml\"\nfi\nsetsid -f bash -c 't=$1; d=$2\nst=~/.config/omalauncher/style/style.toml\ncur=~/.local/state/omarchy/current/theme.name\ntw=~/.config/omarchy/themes/$t-reload\n[ -d \"$tw\" ] && { rm -f \"$tw\"/*; rmdir \"$tw\"; }\nmkdir \"$tw\" || exit 1\ncp \"$d/colors.toml\" \"$tw/colors.toml\" || exit 1\nfor x in \"$d\"/*; do case \"$x\" in */colors.toml|*/colors.orig.toml) ;; *) ln -s \"$x\" \"$tw/\" ;; esac; done\nhad=1; grep -q \"^theme *=\" \"$st\" || had=0\nif [ $had = 1 ]; then sed -i \"s/^theme *=.*/theme = \\\"$t-reload\\\"/\" \"$st\"; else sed -i \"1i theme = \\\"$t-reload\\\"\" \"$st\"; fi\nfor i in $(seq 40); do [ \"$(cat \"$cur\")\" = \"$t-reload\" ] && break; sleep 0.25; done\nsleep 0.5\nif [ $had = 1 ]; then sed -i \"s/^theme *=.*/theme = \\\"$t\\\"/\" \"$st\"; else sed -i \"/^theme *=/d\" \"$st\"; fi\nfor i in $(seq 40); do [ \"$(cat \"$cur\")\" = \"$t\" ] && break; sleep 0.25; done\nsleep 1; rm -f \"$tw\"/*; rmdir \"$tw\"' _ \"$t\" \"$d\" </dev/null >/dev/null 2>&1")
+          onTap: run("t=$(sed -n \"s/^theme *= *\\\"\\(.*\\)\\\"/\\1/p\" ~/.config/omalauncher/style/style.toml)\n[ -n \"$t\" ] || t=$(cat ~/.local/state/omarchy/current/theme.name)\nt=$(printf %s \"$t\" | sed \"s/-reload\\$//\")\nd=~/.config/omarchy/themes/$t\n[ -f \"$d/colors.orig.toml\" ] || exit 1\nown=0\nfor x in \"$d\"/* \"$d\"/.[!.]*; do\n[ -L \"$x\" ] && continue\n[ -e \"$x\" ] || continue\nn=$(basename \"$x\")\n[ \"$n\" = colors.toml ] || [ \"$n\" = colors.orig.toml ] || [ \"$n\" = .theme-colors-copy ] || own=1\ndone\nif [ -f \"$d/.theme-colors-copy\" ] && [ $own = 0 ]; then\nfor x in \"$d\"/*; do [ -L \"$x\" ] && rm -f \"$x\"; done\nrm -f \"$d/colors.toml\" \"$d/colors.orig.toml\" \"$d/.theme-colors-copy\"\nrmdir \"$d\" || exit 1\nd=~/.local/share/omarchy/themes/$t\nelse\nmv -f \"$d/colors.orig.toml\" \"$d/colors.toml\"\nfi\nsetsid -f bash -c 't=$1; d=$2\nst=~/.config/omalauncher/style/style.toml\ncur=~/.local/state/omarchy/current/theme.name\ntw=~/.config/omarchy/themes/$t-reload\n[ -d \"$tw\" ] && { rm -f \"$tw\"/*; rmdir \"$tw\"; }\nmkdir \"$tw\" || exit 1\ncp \"$d/colors.toml\" \"$tw/colors.toml\" || exit 1\nfor x in \"$d\"/*; do case \"$x\" in */colors.toml|*/colors.orig.toml) ;; *) ln -s \"$x\" \"$tw/\" ;; esac; done\nhad=1; grep -q \"^theme *=\" \"$st\" || had=0\nif [ $had = 1 ]; then sed -i \"s/^theme *=.*/theme = \\\"$t-reload\\\"/\" \"$st\"; else sed -i \"1i theme = \\\"$t-reload\\\"\" \"$st\"; fi\nfor i in $(seq 40); do [ \"$(cat \"$cur\")\" = \"$t-reload\" ] && break; sleep 0.25; done\nsleep 0.5\nif [ $had = 1 ]; then sed -i \"s/^theme *=.*/theme = \\\"$t\\\"/\" \"$st\"; else sed -i \"/^theme *=/d\" \"$st\"; fi\nfor i in $(seq 40); do [ \"$(cat \"$cur\")\" = \"$t\" ] && break; sleep 0.25; done\nsleep 1; rm -f \"$tw\"/*; rmdir \"$tw\"' _ \"$t\" \"$d\" </dev/null >/dev/null 2>&1")
         }
       }
       // Refresh: re-reads the theme's colors now.
