@@ -19,9 +19,15 @@ An [omalauncher](https://github.com/SimonSchubert/omarchy-widgets) home-screen w
 
 The new color shows on the tile at once and in the whole theme about 2–3 seconds later.
 
-| theme palette | tonal | functional | tonality grid | harmonic |
-|---|---|---|---|---|
-| ![](screenshots/theme.png) | ![](screenshots/tonal.png) | ![](screenshots/func.png) | ![](screenshots/grid.png) | ![](screenshots/harm.png) |
+<table>
+  <tr>
+    <td align="center" valign="top"><img src="screenshots/theme.png" width="160" alt="theme palette"><br><sub>theme palette</sub></td>
+    <td align="center" valign="top"><img src="screenshots/tonal.png" width="160" alt="tonal"><br><sub>tonal</sub></td>
+    <td align="center" valign="top"><img src="screenshots/func.png" width="160" alt="functional"><br><sub>functional</sub></td>
+    <td align="center" valign="top"><img src="screenshots/grid.png" width="160" alt="tonality grid"><br><sub>tonality grid</sub></td>
+    <td align="center" valign="top"><img src="screenshots/harm.png" width="160" alt="harmonic"><br><sub>harmonic</sub></td>
+  </tr>
+</table>
 
 ## Install
 
